@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kalender Pendidikan Elektronik</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f1f1; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    
+    /* Token warna soft background */
+    .tint-kbm { background-color: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+    .tint-libur { background-color: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+    .tint-rapat { background-color: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+    .tint-nonkbm { background-color: #f5f3ff; color: #5b21b6; border: 1px solid #ddd6fe; }
+    .tint-lain { background-color: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+    .tint-multi { background-color: #f8fafc; color: #0f172a; border: 1px solid #cbd5e1; }
+
+    /* Dot indicators */
+    .dot-kbm { background-color: #3b82f6; }
+    .dot-libur { background-color: #ef4444; }
+    .dot-rapat { background-color: #10b981; }
+    .dot-nonkbm { background-color: #8b5cf6; }
+    .dot-lain { background-color: #f59e0b; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen">
+
+  <!-- KONFIGURASI SETUP BANNER (Hanya muncul jika URL GAS belum diisi) -->
+  <div id="setupOverlay" class="hidden bg-amber-50 border-b border-amber-200 p-4 sticky top-0 z-50 shadow-md">
+    <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
+      <div class="flex items-center space-x-3 text-amber-800">
+        <i data-lucide="alert-triangle" class="w-6 h-6 flex-shrink-0"></i>
+        <div class="text-xs sm:text-sm">
+          <strong class="font-bold">Mode Pengaturan Awal:</strong> Web Kalender belum terhubung ke Google Sheets Anda. Silakan tempel URL Web App GAS Anda ke dalam variabel <code class="bg-amber-100 px-1.5 py-0.5 rounded font-mono font-bold text-red-700">GAS_API_URL</code> di baris kode paling bawah.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- HEADER UTAMA -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="bg-blue-600 p-2.5 rounded-xl text-white shadow-md shadow-blue-200">
+          <i data-lucide="calendar" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h1 class="text-sm font-black text-slate-900 tracking-tight leading-none mb-1">E-KALDIK</h1>
+          <p class="text-[9px] text-slate-500 font-bold tracking-wider uppercase">Kalender Pendidikan Elektronik</p>
+        </div>
+      </div>
+      
+      <div class="flex items-center space-x-3">
+        <div id="userStatus" class="flex flex-col items-end text-right border-r border-slate-200 pr-3">
+          <span id="userEmail" class="text-xs font-bold text-slate-700">Tamu Umum</span>
+          <span id="userRole" class="text-[9px] text-slate-400 font-extrabold uppercase tracking-widest">Siswa / Wali Santri</span>
+        </div>
+        <button id="btnTambah" onclick="openModal()" class="hidden bg-blue-600 hover:bg-blue-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-sm transition flex items-center space-x-2">
+          <i data-lucide="plus" class="w-4 h-4"></i><span>Tambah Agenda</span>
+        </button>
+        <button onclick="bukaHalamanCetak()" class="bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center space-x-2">
+          <i data-lucide="printer" class="w-4 h-4"></i><span class="hidden md:inline">Cetak / PDF</span>
+        </button>
+        <!-- Tombol Login Token di Pojok Atas -->
+        <button id="btnLoginToken" onclick="mintaTokenAkses()" class="bg-slate-900 hover:bg-slate-800 text-white p-2 rounded-xl text-xs font-bold shadow-sm transition flex items-center justify-center" title="Login Pengurus/Guru">
+          <i data-lucide="key-round" class="w-4 h-4"></i>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- KONTEN UTAMA -->
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+      <!-- BANNER UTAMA -->
+      <div class="lg:col-span-2 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900 text-white p-6 sm:p-8 rounded-3xl shadow-xl border border-white/10 relative overflow-hidden flex flex-col justify-between">
+        <div class="absolute -right-10 -top-10 w-40 h-40 bg-blue-500/10 rounded-full blur-3xl"></div>
+        <div class="relative z-10">
+          <div class="flex items-center gap-2 mb-2">
+            <span class="bg-blue-500/20 text-blue-300 text-[9px] font-extrabold px-2 py-0.5 rounded-full border border-blue-500/30 tracking-wider">KURIKULUM TERPADU</span>
+            <span id="labelTahunAjaran" class="bg-emerald-500/20 text-emerald-300 text-[9px] font-extrabold px-2 py-0.5 rounded-full border border-emerald-500/30 tracking-wider">MEMUAT TAHUN...</span>
+          </div>
+          <h2 class="text-xl sm:text-2xl font-black tracking-tight leading-tight mb-2">Kalender Akademik & Aktivitas Pesantren</h2>
+          <p class="text-xs text-slate-300 max-w-xl">Portal monitoring agenda harian, program kepesantrenan, kegiatan ujian formal, serta jadwal hari besar keagamaan secara transparan dan realtime.</p>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-4 mt-6 pt-4 border-t border-white/10 relative z-10">
+          <div id="lockStatusContainer" class="flex items-center space-x-2.5">
+            <div id="lockIconBg" class="bg-emerald-500/20 text-emerald-400 p-1.5 rounded-lg">
+              <i data-lucide="lock-open" id="lockIcon" class="w-4 h-4"></i>
+            </div>
+            <div>
+              <p class="text-[8px] uppercase font-black text-slate-400 tracking-wider">Otoritas Edit</p>
+              <p class="text-xs font-bold leading-none mt-0.5" id="lockStatusText">Terbuka</p>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <button id="btnToggleLock" onclick="toggleGlobalLock()" class="hidden bg-amber-500 hover:bg-amber-600 text-slate-950 px-3 py-1.5 rounded-xl text-[10px] font-bold transition shadow-sm flex items-center gap-1">
+              <i data-lucide="key-round" class="w-3 h-3"></i><span>Kunci/Buka</span>
+            </button>
+            <div class="bg-white/5 border border-white/10 px-3 py-1.5 rounded-xl text-xs flex items-center gap-2">
+              <i data-lucide="activity" class="w-4 h-4 text-emerald-400"></i>
+              <span>Total: <strong id="totalAgenda" class="text-white">0</strong> Agenda</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- WIDGET HARI INI -->
+      <div class="bg-white border border-slate-200 p-6 rounded-3xl shadow-sm flex flex-col justify-between relative overflow-hidden">
+        <div class="absolute -right-8 -bottom-8 w-24 h-24 bg-blue-50 rounded-full blur-2xl"></div>
+        <div>
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3 mb-4">
+            <div class="flex items-center space-x-2">
+              <div class="bg-blue-50 text-blue-600 p-1.5 rounded-lg"><i data-lucide="bell-ring" class="w-4 h-4"></i></div>
+              <h3 class="font-extrabold text-xs text-slate-400 uppercase tracking-wider">Agenda Hari Ini</h3>
+            </div>
+            <span class="flex h-2 w-2 relative">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+          </div>
+          <div class="mb-4">
+            <h4 class="text-base font-black text-slate-900 leading-tight" id="todayDayName">Mengambil Hari...</h4>
+            <p class="text-xs text-slate-500 font-semibold" id="todayFullDate">Mengambil Tanggal...</p>
+          </div>
+          <div id="todayAgendaContainer" class="space-y-2 max-h-36 overflow-y-auto pr-1">
+            <!-- Konten dinamis -->
+          </div>
+        </div>
+        <p class="text-[10px] text-slate-400 mt-4 border-t border-slate-100 pt-2 font-medium">Tetap pantau kegiatan agar tidak terlewat.</p>
+      </div>
+    </div>
+
+    <!-- NOTIFIKASI INFORMASI AKUN & KELOMPOK AKSES -->
+    <div id="accessNotification" class="bg-blue-50 border border-blue-200 text-blue-900 px-4 py-3.5 rounded-2xl mb-6 flex items-start space-x-3 shadow-sm">
+      <i data-lucide="shield-check" id="accessIcon" class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5"></i>
+      <div class="flex-1">
+        <h4 class="font-bold text-sm" id="accessTitle">Akses Publik: Tamu Sekolah / Santri</h4>
+        <p class="text-xs text-blue-700 mt-0.5" id="accessDesc">Menampilkan seluruh agenda umum. Pengurus yayasan silakan klik ikon gembok kunci hitam di pojok kanan atas untuk login.</p>
+      </div>
+    </div>
+
+    <!-- NOTIFIKASI KUNCI AKTIF -->
+    <div id="lockActiveWarning" class="hidden bg-red-50 border border-red-200 text-red-900 px-4 py-3.5 rounded-2xl mb-6 flex items-start space-x-3 shadow-sm">
+      <i data-lucide="lock" class="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5"></i>
+      <div>
+        <h4 class="font-bold text-sm">Kalender Dikunci oleh Super Admin</h4>
+        <p class="text-xs text-red-700 mt-0.5">Seluruh perubahan data saat ini dibekukan sementara. Hubungi Kepala Sekolah atau Super Admin untuk meminta pembukaan akses edit.</p>
+      </div>
+    </div>
+
+    <!-- GRID KALENDER -->
+    <div class="mb-10 relative">
+      <h3 class="text-base font-extrabold text-slate-800 mb-4 flex items-center space-x-2">
+        <i data-lucide="calendar-range" class="w-5 h-5 text-blue-600"></i>
+        <span>Lembar Kalender Akademik & Kepesantrenan 12 Bulan</span>
+      </h3>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" id="gridKalender">
+        <div class="col-span-full py-12 flex flex-col items-center justify-center text-slate-400">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mb-3"></div>
+          <span class="text-sm font-medium">Memuat dan menyusun data kalender...</span>
+        </div>
+      </div>
+
+      <!-- POPOVER CARD -->
+      <div id="popoverCard" class="hidden absolute z-50 bg-white border border-slate-200 rounded-2xl shadow-xl p-4 max-w-xs w-72 pointer-events-none transition-all duration-200">
+        <div class="flex items-center space-x-2 border-b border-slate-100 pb-2 mb-2">
+          <i data-lucide="calendar-days" class="w-4 h-4 text-blue-600"></i>
+          <span id="popoverDate" class="text-xs font-bold text-slate-800">Tanggal</span>
+        </div>
+        <div id="popoverAgendaList" class="space-y-2 text-xs"></div>
+      </div>
+    </div>
+
+    <!-- LEGENDA WARNA -->
+    <div class="bg-white border border-slate-200 rounded-2xl p-6 mb-10 shadow-sm">
+      <h4 class="font-extrabold text-xs text-slate-400 uppercase tracking-wider mb-4">Legenda Kategori Agenda Terpadu</h4>
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4">
+        <div class="flex items-center space-x-3 p-2 rounded-xl hover:bg-slate-50 transition border border-transparent hover:border-slate-100">
+          <span class="w-4 h-4 rounded-lg bg-[#3b82f6] flex-shrink-0 shadow-sm shadow-blue-300"></span><span class="text-xs font-semibold text-slate-700">Akademik / KBM Formal</span>
+        </div>
+        <div class="flex items-center space-x-3 p-2 rounded-xl hover:bg-slate-50 transition border border-transparent hover:border-slate-100">
+          <span class="w-4 h-4 rounded-lg bg-[#ef4444] flex-shrink-0 shadow-sm shadow-red-300"></span><span class="text-xs font-semibold text-slate-700">Libur Santri & Nasional</span>
+        </div>
+        <div class="flex items-center space-x-3 p-2 rounded-xl hover:bg-slate-50 transition border border-transparent hover:border-slate-100">
+          <span class="w-4 h-4 rounded-lg bg-[#10b981] flex-shrink-0 shadow-sm shadow-emerald-300"></span><span class="text-xs font-semibold text-slate-700">Aktivitas Kepesantrenan</span>
+        </div>
+        <div class="flex items-center space-x-3 p-2 rounded-xl hover:bg-slate-50 transition border border-transparent hover:border-slate-100">
+          <span class="w-4 h-4 rounded-lg bg-[#8b5cf6] flex-shrink-0 shadow-sm shadow-purple-300"></span><span class="text-xs font-semibold text-slate-700">Hari Besar Islam / PHBI</span>
+        </div>
+        <div class="flex items-center space-x-3 p-2 rounded-xl hover:bg-slate-50 transition border border-transparent hover:border-slate-100">
+          <span class="w-4 h-4 rounded-lg bg-[#f59e0b] flex-shrink-0 shadow-sm shadow-amber-300"></span><span class="text-xs font-semibold text-slate-700">Agenda Yayasan / Umum</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABEL RINCIAN -->
+    <div class="bg-white border border-slate-200 rounded-3xl overflow-hidden shadow-sm">
+      <div class="px-6 py-5 border-b border-slate-200 bg-slate-50/70 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+        <div>
+          <h3 class="font-extrabold text-slate-900 text-base">Rincian Kegiatan Sekolah & Pesantren</h3>
+          <p class="text-xs text-slate-500 font-medium">Daftar terurut kegiatan yang disaring berdasarkan hak akses Anda</p>
+        </div>
+        <div class="relative w-full sm:w-64">
+          <span class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
+            <i data-lucide="search" class="w-4 h-4"></i>
+          </span>
+          <input type="text" id="searchAgenda" onkeyup="filterAgenda()" placeholder="Cari rincian agenda..." class="w-full pl-9 pr-4 py-2 text-xs bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition">
+        </div>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-left border-collapse">
+          <thead>
+            <tr class="border-b border-slate-200 text-[10px] font-black text-slate-400 uppercase bg-slate-50 tracking-widest">
+              <th class="py-3.5 px-6 w-1/12 text-center">No</th>
+              <th class="py-3.5 px-6 w-4/12">Nama Kegiatan / Agenda</th>
+              <th class="py-3.5 px-6 w-2/12">Mulai</th>
+              <th class="py-3.5 px-6 w-2/12">Selesai</th>
+              <th class="py-3.5 px-6 w-1.5/12">Kategori</th>
+              <th class="py-3.5 px-6 w-1/12 text-center">Sifat</th>
+              <th id="thAksi" class="hidden py-3.5 px-6 w-1.5/12 text-center">Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="tbodyAgenda" class="divide-y divide-slate-100 text-sm"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- FORM EDIT/INPUT DI MODAL -->
+  <div id="agendaModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-slate-900/50 backdrop-blur-sm flex items-center justify-center p-4">
+    <div class="bg-white rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 overflow-hidden transform scale-95 opacity-0 transition-all duration-200" id="modalContainer">
+      <div class="px-6 py-4.5 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+        <h3 id="modalTitle" class="font-bold text-slate-900 text-base">Tambah Agenda</h3>
+        <button onclick="closeModal()" class="text-slate-400 hover:text-slate-600 p-1.5 rounded-xl hover:bg-slate-200 transition"><i data-lucide="x" class="w-5 h-5"></i></button>
+      </div>
+      <form id="formAgenda" onsubmit="handleFormSubmit(event)" class="p-6 space-y-4">
+        <input type="hidden" id="agendaId" name="id">
+        <div>
+          <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Nama Agenda/Kegiatan</label>
+          <input type="text" id="agendaTitle" required placeholder="Contoh: Rapat Evaluasi Belajar Semester II" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Tanggal Mulai</label>
+            <input type="date" id="agendaStart" required onchange="handleDateInputChange()" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500">
+            <span id="startPreviewText" class="text-[10px] text-blue-600 font-semibold block mt-1"></span>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Tanggal Selesai</label>
+            <input type="date" id="agendaEnd" required onchange="handleDateInputChange()" class="w-full px-3.5 py-2.5 text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500">
+            <span id="endPreviewText" class="text-[10px] text-blue-600 font-semibold block mt-1"></span>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Kategori</label>
+            <select id="agendaCategory" class="w-full px-3 py-2.5 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500">
+              <option value="kbm">Akademik / Formal</option>
+              <option value="libur">Libur Santri / Nas</option>
+              <option value="rapat">Aktivitas Pesantren</option>
+              <option value="nonkbm">PHBI / Hari Besar</option>
+              <option value="lain">Yayasan / Umum</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5">Sifat Akses</label>
+            <select id="agendaSifat" class="w-full px-3 py-2.5 text-xs border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500">
+              <option value="publik">Publik (Tamu/Umum)</option>
+              <option value="internal">Internal (Staf/Guru)</option>
+            </select>
+          </div>
+        </div>
+        <div id="formError" class="hidden text-xs text-red-600 bg-red-50 p-2.5 rounded-xl border border-red-200 font-medium"></div>
+        <div class="flex justify-end space-x-3 pt-4 border-t border-slate-100">
+          <button type="button" onclick="closeModal()" class="px-4 py-2 text-xs font-bold text-slate-600 hover:bg-slate-100 rounded-xl">Batal</button>
+          <button type="submit" id="btnSimpan" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-sm flex items-center space-x-1.5">
+            <i data-lucide="save" class="w-4 h-4"></i><span>Simpan Agenda</span>
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- TOAST -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 transform translate-y-10 opacity-0 pointer-events-none transition-all duration-300 flex items-center space-x-3 bg-slate-950 text-white px-4 py-3 rounded-2xl shadow-xl max-w-sm">
+    <div id="toastIcon" class="p-1 rounded-lg"></div><span id="toastMsg" class="text-xs font-medium"></span>
+  </div>
+
+  <script>
+    // ==========================================
+    // !!! WAJIB DIISI UNTUK GITHUB PAGES !!!
+    // Tempelkan URL Web App hasil deploy GAS Anda di bawah ini:
+    const GAS_API_URL = "https://script.google.com/macros/s/AKfycbw3juJFX2cGakzGKH6Fx48q_SMB2nyHc83pJTMRQT_jWAqeqcbPQSY799T2hfmYVP3FHg/exec";
+    // ==========================================
+
+    let TAHUN_MULAI = 2026; 
+    const BULAN_URUTAN = [6, 7, 8, 9, 10, 11, 0, 1, 2, 3, 4, 5];
+    const NAMA_BULAN = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+    const NAMA_HARI = ["Minggu", "Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu"];
+    const LABELS = { 'kbm': 'Akademik', 'libur': 'Libur', 'rapat': 'Pesantren', 'nonkbm': 'PHBI', 'lain': 'Yayasan / Umum' };
+
+    let listAgenda = [], isLockedText = false, userAccess = { role: 'tamu' };
+    let tokenSandiAktif = sessionStorage.getItem("KALDIK_TOKEN") || "";
+
+    window.onload = function() {
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+      periksaKonfigurasiAwal();
+    };
+
+    /**
+     * Diagnosis Mandiri: Jika URL GAS belum diisi, tampilkan peringatan di layar
+     */
+    function periksaKonfigurasiAwal() {
+      if (!GAS_API_URL || GAS_API_URL === "ISI_URL_WEB_APP_GAS_DI_SINI") {
+        document.getElementById("setupOverlay").classList.remove("hidden");
+        // Gunakan MOCK data agar web tidak kosong melompong saat baru dibuka di GitHub
+        terapkanProfilSekolah({ nama: "Lembaga Pendidikan Islam Terpadu", alamat: "Jl. Raya Pesantren No. 45", npsn: "12345678", tahunAjaran: "2026/2027" });
+        userAccess = { role: 'super_admin', nama: "Simulasi Admin (Belum Terkoneksi)" };
+        updateUIAccess();
+        listAgenda = [
+          { id: "1", title: "Mulai Tahun Ajaran Baru", start: "2026-07-13", end: "2026-07-13", category: "kbm", sifat: "publik" },
+          { id: "2", title: "Rapat Kerja Wali Santri", start: "2026-07-20", end: "2026-07-20", category: "lain", sifat: "publik" }
+        ];
+        buildKalender(); buildTabelAgenda(); updateTodayWidget();
+      } else {
+        mulaiSistem();
+      }
+    }
+
+    /**
+     * Helper Universal untuk Memanggil API GAS lewat HTTP POST (Bypass CORS Preflight)
+     */
+    async function panggilApiServer(actionName, payloadData = {}) {
+      try {
+        const response = await fetch(GAS_API_URL, {
+          method: "POST",
+          // Menggunakan text/plain agar browser menganggapnya sebagai "Simple Request"
+          // Ini trik krusial untuk melewati pemblokiran CORS Preflight (OPTIONS) di GAS
+          headers: { "Content-Type": "text/plain" }, 
+          body: JSON.stringify({
+            action: actionName,
+            token: tokenSandiAktif,
+            payload: payloadData
+          })
+        });
+        
+        if (!response.ok) throw new Error("Respons jaringan tidak normal.");
+        const result = await response.json();
+        
+        if (result.status === "error") throw new Error(result.message);
+        return result.data;
+      } catch (err) {
+        console.error("Gagal memanggil API: ", err);
+        throw err;
+      }
+    }
+
+    /**
+     * Memulai pemuatan data secara berantai dari server Google Sheets
+     */
+    async function mulaiSistem() {
+      try {
+        // 1. Muat Profil Identitas Yayasan
+        const schoolInfo = await panggilApiServer("getSchoolIdentity");
+        if (schoolInfo) terapkanProfilSekolah(schoolInfo);
+
+        // 2. Muat Level Otoritas Pengguna
+        if (tokenSandiAktif) {
+          await verifikasiTokenLayanan(tokenSandiAktif, false);
+        } else {
+          const res = await panggilApiServer("getInitialAccessState");
+          userAccess = res || { role: 'tamu' };
+          isLockedText = res ? res.isSystemLocked : false;
+          updateUIAccess();
+          await muatDataAgendaSaja();
+        }
+      } catch (err) {
+        tanganiErrorLoading(err);
+      }
+    }
+
+    async function muatDataAgendaSaja() {
+      try {
+        const data = await panggilApiServer("getAgendaData");
+        listAgenda = data || [];
+        buildKalender(); 
+        buildTabelAgenda(); 
+        updateTodayWidget();
+      } catch (err) {
+        tanganiErrorLoading(err);
+      }
+    }
+
+    function tanganiErrorLoading(err) {
+      showToast("Koneksi database terputus. Muat ulang halaman.", "error");
+      document.getElementById("gridKalender").innerHTML = `<div class="col-span-full py-12 text-center text-red-500">Gagal terhubung ke Google Sheets. Silakan cek status web app GAS Anda.</div>`;
+    }
+
+    /**
+     * Dialog Input Token Sandi Akses
+     */
+    function mintaTokenAkses() {
+      const promptSandi = prompt("Masukkan Kunci Token Sandi Pengurus/Guru:");
+      if (promptSandi === null) return;
+      if (!promptSandi.trim()) {
+        showToast("Sandi Token tidak boleh kosong!", "error");
+        return;
+      }
+      verifikasiTokenLayanan(promptSandi.trim(), true);
+    }
+
+    /**
+     * Memverifikasi token ke API
+     */
+    async function verifikasiTokenLayanan(token, tampilkanNotif) {
+      if (tampilkanNotif) showToast("Memverifikasi Kunci Token...", "info");
+      try {
+        // Bypass simulasi jika URL belum dipasang
+        if (!GAS_API_URL || GAS_API_URL === "ISI_URL_WEB_APP_GAS_DI_SINI") {
+          showToast("Simulasi: Login Berhasil!", "success");
+          return;
+        }
+
+        const res = await panggilApiServer("dapatkanAksesLewatToken", { token: token });
+        if (res && res.role !== 'tamu') {
+          userAccess = res;
+          isLockedText = res.isSystemLocked;
+          tokenSandiAktif = token;
+          sessionStorage.setItem("KALDIK_TOKEN", token);
+          
+          updateUIAccess();
+          await muatDataAgendaSaja();
+          if (tampilkanNotif) showToast(`Login Sukses: Masuk sebagai ${res.nama}`, "success");
+        } else {
+          sessionStorage.removeItem("KALDIK_TOKEN");
+          tokenSandiAktif = "";
+          if (tampilkanNotif) showToast("Sandi Token Salah!", "error");
+          userAccess = { role: 'tamu' };
+          updateUIAccess();
+          await muatDataAgendaSaja();
+        }
+      } catch (err) {
+        showToast("Gagal memproses verifikasi token: " + err.message, "error");
+      }
+    }
+
+    function terapkanProfilSekolah(schoolInfo) {
+      const els = {
+        "namaSekolahText": schoolInfo.nama, "footerNamaSekolah": schoolInfo.nama,
+        "alamatSekolahText": schoolInfo.alamat, "footerAlamatSekolah": schoolInfo.alamat,
+        "npsnSekolahText": schoolInfo.npsn, "footerNpsnSekolah": schoolInfo.npsn
+      };
+      for (const [id, val] of Object.entries(els)) {
+        if (document.getElementById(id) && val) document.getElementById(id).innerText = val;
+      }
+      if (schoolInfo.tahunAjaran) {
+        document.getElementById("labelTahunAjaran").innerText = "T.A. " + schoolInfo.tahunAjaran;
+        TAHUN_MULAI = parseInt(schoolInfo.tahunAjaran.split("/")[0]) || 2026;
+      }
+    }
+
+    function updateUIAccess() {
+      const role = userAccess.role || 'tamu';
+      const nama = userAccess.nama || 'Tamu Umum';
+      
+      const thAksi = document.getElementById("thAksi"), btnTambah = document.getElementById("btnTambah");
+      const notifBanner = document.getElementById("accessNotification");
+      const notifIcon = document.getElementById("accessIcon");
+      const notifTitle = document.getElementById("accessTitle");
+      const notifDesc = document.getElementById("accessDesc");
+      const btnLoginToken = document.getElementById("btnLoginToken");
+
+      if (role !== 'tamu') {
+        document.getElementById("userEmail").innerText = nama;
+        document.getElementById("userEmail").className = "text-xs font-bold text-slate-800";
+        btnLoginToken.innerHTML = `<i data-lucide="log-out" class="w-4 h-4"></i>`;
+        btnLoginToken.onclick = function() {
+          sessionStorage.removeItem("KALDIK_TOKEN");
+          location.reload();
+        };
+      } else {
+        document.getElementById("userEmail").innerText = "Tamu Publik";
+        document.getElementById("userEmail").className = "text-xs font-bold text-slate-400";
+        btnLoginToken.innerHTML = `<i data-lucide="key-round" class="w-4 h-4"></i>`;
+        btnLoginToken.onclick = mintaTokenAkses;
+      }
+
+      document.getElementById("lockIcon").setAttribute("data-lucide", isLockedText ? "lock" : "lock-open");
+      document.getElementById("lockIconBg").className = isLockedText ? "bg-red-500/20 text-red-400 p-1.5 rounded-lg" : "bg-emerald-500/20 text-emerald-400 p-1.5 rounded-lg";
+      document.getElementById("lockStatusText").innerText = isLockedText ? "Sistem Dikunci" : "Terbuka";
+
+      const rConf = {
+        'super_admin': { name: "Super Admin", color: "text-red-600", desc: "Akses Penuh: Super Admin (Kepala Yayasan)", canAdd: true, showAksi: true, showLock: true, banner: "bg-red-50 border-red-200 text-red-900" },
+        'admin': { name: "Admin / Wakasek", color: "text-green-600", desc: "Akses Editor: Kurikulum / Humas", canAdd: !isLockedText, showAksi: true, showLock: false, banner: "bg-green-50 border-green-200 text-green-900" },
+        'guru': { name: "Guru / Ustadz", color: "text-indigo-600", desc: "Akses Internal: Dewan Guru & Staf", canAdd: false, showAksi: false, showLock: false, banner: "bg-indigo-50 border-indigo-200 text-indigo-900" },
+        'tamu': { name: "Tamu Umum", color: "text-slate-500", desc: "Akses Terbatas: Siswa / Wali Murid / Umum", canAdd: false, showAksi: false, showLock: false, banner: "bg-blue-50 border-blue-200 text-blue-900" }
+      }[role] || rConf['tamu'];
+
+      document.getElementById("userRole").innerText = rConf.name;
+      document.getElementById("userRole").className = `text-[9px] ${rConf.color} font-black uppercase tracking-widest`;
+      document.getElementById("accessTitle").innerText = rConf.desc;
+      
+      if (role === 'tamu') {
+        notifDesc.innerHTML = "Menampilkan seluruh agenda umum. Pengurus yayasan silakan klik tombol gembok kunci hitam di pojok kanan atas untuk login.";
+        notifIcon.setAttribute("data-lucide", "shield-alert");
+        notifIcon.className = "w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5";
+      } else {
+        notifDesc.innerText = "Anda masuk menggunakan Kunci Token Resmi. Seluruh perubahan akan langsung terintegrasi dengan Google Sheets.";
+        notifIcon.setAttribute("data-lucide", "shield-check");
+        notifIcon.className = `w-5 h-5 ${rConf.color} flex-shrink-0 mt-0.5`;
+      }
+      notifBanner.className = `${rConf.banner} border px-4 py-3.5 rounded-2xl mb-6 flex items-start space-x-3 shadow-sm`;
+
+      btnTambah.classList.toggle("hidden", !rConf.canAdd);
+      thAksi.classList.toggle("hidden", !rConf.showAksi);
+      document.getElementById("btnToggleLock").classList.toggle("hidden", !rConf.showLock);
+      
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    function buildKalender() {
+      const grid = document.getElementById("gridKalender");
+      const mapTanggal = {};
+
+      listAgenda.filter(a => !(userAccess.role === "tamu" && a.sifat === "internal")).forEach(agenda => {
+        for (let d = new Date(agenda.start); d <= new Date(agenda.end); d.setDate(d.getDate() + 1)) {
+          const key = formatTanggalISO(d);
+          (mapTanggal[key] = mapTanggal[key] || []).push(agenda);
+        }
+      });
+
+      grid.innerHTML = BULAN_URUTAN.map(bId => {
+        const tahun = (bId >= 6) ? TAHUN_MULAI : TAHUN_MULAI + 1;
+        const totalHari = new Date(tahun, bId + 1, 0).getDate();
+        const hariPertamaIdx = new Date(tahun, bId, 1).getDay();
+
+        let cells = Array(hariPertamaIdx).fill(`<span class="py-2.5"></span>`).join('');
+
+        for (let tgl = 1; tgl <= totalHari; tgl++) {
+          const dateObj = new Date(tahun, bId, tgl);
+          const key = formatTanggalISO(dateObj);
+          const agendas = mapTanggal[key] || [];
+          
+          let css = dateObj.getDay() === 0 ? "text-red-500 font-bold hover:bg-red-50 border border-transparent" : "text-slate-700 hover:bg-slate-100 border border-transparent";
+          let dots = "", attr = "";
+
+          if (agendas.length > 0) {
+            attr = `data-agenda='${JSON.stringify(agendas).replace(/'/g, "&apos;")}' data-tgl-indo='${tgl} ${NAMA_BULAN[bId]} ${tahun}'`;
+            if (agendas.length === 1) {
+              css = `tint-${agendas[0].category} font-bold rounded-xl shadow-xs`;
+              dots = `<span class="w-1.5 h-1.5 rounded-full dot-${agendas[0].category}"></span>`;
+            } else {
+              css = `tint-multi font-black rounded-xl shadow-xs border border-slate-300`;
+              dots = [...new Set(agendas.map(a => a.category))].slice(0, 3)
+                .map(kat => `<span class="w-1.5 h-1.5 rounded-full dot-${kat}"></span>`).join('');
+            }
+          }
+
+          cells += `
+            <div ${attr} onmouseenter="handleCellHover(event, true)" onmouseleave="handleCellHover(event, false)" onclick="handleCellTap(this)"
+                 class="py-1.5 flex flex-col items-center justify-center cursor-pointer transition rounded-xl relative ${css}">
+              <span class="leading-none mb-0.5">${tgl}</span>
+              <div class="flex gap-0.5 h-1.5 items-center justify-center w-full">${dots}</div>
+            </div>`;
+        }
+
+        return `
+          <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:shadow-md transition duration-200 flex flex-col justify-between">
+            <div class="border-b border-slate-100 pb-2 mb-3">
+              <h4 class="font-bold text-sm text-slate-800">${NAMA_BULAN[bId]}</h4>
+              <p class="text-[10px] text-slate-400 font-bold">${tahun}</p>
+            </div>
+            <div class="grid grid-cols-7 gap-1 text-center text-[10px] font-bold text-slate-400 mb-1">
+              <span class="text-red-500">M</span><span>S</span><span>S</span><span>R</span><span>K</span><span>J</span><span>S</span>
+            </div>
+            <div class="grid grid-cols-7 gap-1 text-center text-xs">${cells}</div>
+          </div>`;
+      }).join('');
+    }
+
+    function buildTabelAgenda() {
+      const tbody = document.getElementById("tbodyAgenda");
+      const visibleAgenda = listAgenda.filter(a => !(userAccess.role === "tamu" && a.sifat === "internal"))
+                                      .sort((a, b) => new Date(a.start) - new Date(b.start));
+
+      document.getElementById("totalAgenda").innerText = visibleAgenda.length;
+
+      if (!visibleAgenda.length) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400 text-xs">Belum ada agenda terdaftar.</td></tr>`;
+        return;
+      }
+
+      const badges = { 'kbm': 'bg-blue-50 text-blue-700', 'libur': 'bg-red-50 text-red-700', 'rapat': 'bg-emerald-50 text-emerald-700', 'nonkbm': 'bg-purple-50 text-purple-700', 'lain': 'bg-amber-50 text-amber-700' };
+
+      tbody.innerHTML = visibleAgenda.map((agd, idx) => {
+        const aksiHTML = ['super_admin', 'admin'].includes(userAccess.role) ? 
+          (isLockedText && userAccess.role !== 'super_admin' ? `<td class="py-3 px-6 text-center text-xs text-slate-400 italic">Terkunci</td>` :
+          `<td class="py-3 px-6 text-center space-x-1.5 whitespace-nowrap">
+            <button onclick="editAgenda('${agd.id}')" class="text-blue-600 hover:bg-blue-50 p-1 rounded-lg transition"><i data-lucide="edit-3" class="w-4 h-4 inline-block"></i></button>
+            <button onclick="hapusAgenda('${agd.id}')" class="text-red-600 hover:bg-red-50 p-1 rounded-lg transition"><i data-lucide="trash-2" class="w-4 h-4 inline-block"></i></button>
+          </td>`) : '';
+
+        return `
+          <tr class="hover:bg-slate-50 transition border-b border-slate-100" data-search="${agd.title.toLowerCase()} ${agd.category.toLowerCase()}">
+            <td class="py-3 px-6 text-center text-slate-400 font-mono text-xs">${idx + 1}</td>
+            <td class="py-3 px-6 font-bold text-slate-800 text-xs sm:text-sm">${agd.title}</td>
+            <td class="py-3 px-6 text-xs text-slate-600">${formatTanggalIndo(agd.start)}</td>
+            <td class="py-3 px-6 text-xs text-slate-600">${formatTanggalIndo(agd.end)}</td>
+            <td class="py-3 px-6"><span class="inline-flex px-2 py-0.5 rounded-full text-[10px] font-bold border border-slate-200 ${badges[agd.category] || ''}">${LABELS[agd.category] || 'Umum'}</span></td>
+            <td class="py-3 px-6 text-center">${agd.sifat === "internal" ? '<span class="bg-indigo-50 text-indigo-700 px-2 py-0.5 rounded text-[10px] font-bold">Internal</span>' : '<span class="bg-slate-100 text-slate-600 px-2 py-0.5 rounded text-[10px] font-semibold">Publik</span>'}</td>
+            ${aksiHTML}
+          </tr>`;
+      }).join('');
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    function updateTodayWidget() {
+      const t = new Date();
+      document.getElementById("todayDayName").innerText = NAMA_HARI[t.getDay()];
+      document.getElementById("todayFullDate").innerText = `${t.getDate()} ${NAMA_BULAN[t.getMonth()]} ${t.getFullYear()}`;
+
+      const keyToday = formatTanggalISO(t);
+      const agendaToday = listAgenda.filter(a => !(userAccess.role === "tamu" && a.sifat === "internal") && keyToday >= a.start && keyToday <= a.end);
+
+      const container = document.getElementById("todayAgendaContainer");
+      if (!agendaToday.length) {
+        container.innerHTML = `<div class="text-slate-400 text-xs py-5 text-center bg-slate-50 rounded-2xl border border-dashed border-slate-200"><i data-lucide="check-circle" class="w-6 h-6 mx-auto mb-1 text-emerald-500"></i><span class="font-semibold text-slate-600">Alhamdulillah</span><p class="text-[10px] text-slate-400 mt-0.5">Tidak ada agenda khusus hari ini.</p></div>`;
+      } else {
+        const badges = { 'kbm': 'border-blue-200 bg-blue-50 text-blue-700', 'libur': 'border-red-200 bg-red-50 text-red-700', 'rapat': 'border-emerald-200 bg-emerald-50 text-emerald-700', 'nonkbm': 'border-purple-200 bg-purple-50 text-purple-700', 'lain': 'border-amber-200 bg-amber-50 text-amber-700' };
+        container.innerHTML = agendaToday.map(agd => `
+          <div class="flex items-start space-x-2.5 p-2.5 rounded-xl border ${badges[agd.category] || 'border-slate-200'} transition hover:scale-[1.01]">
+            <span class="w-2 h-2 rounded-full block mt-1 ${agd.category === 'libur' ? 'bg-red-500' : 'bg-blue-600'}"></span>
+            <div class="flex-1 min-w-0">
+              <h5 class="font-bold text-[11px] sm:text-xs leading-snug truncate text-slate-900">${agd.title} ${agd.sifat === 'internal' ? '<span class="bg-indigo-100 text-indigo-800 text-[8px] font-extrabold px-1 rounded ml-1">INTERNAL</span>' : ''}</h5>
+              <p class="text-[9px] opacity-80 mt-0.5 font-medium">Kategori: ${LABELS[agd.category]}</p>
+            </div>
+          </div>
+        `).join('');
+      }
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+    }
+
+    // Modal & Popover Interactions
+    function handleCellHover(event, show) {
+      const cell = event.currentTarget, popover = document.getElementById("popoverCard");
+      if (!show || !cell.getAttribute("data-agenda")) return popover.classList.add("hidden");
+
+      const agendaData = JSON.parse(cell.getAttribute("data-agenda"));
+      document.getElementById("popoverDate").innerText = cell.getAttribute("data-tgl-indo");
+      
+      document.getElementById("popoverAgendaList").innerHTML = agendaData.map(agd => `
+        <div class="flex items-start space-x-2 p-1.5 bg-slate-50 rounded-lg border border-slate-100">
+          <span class="w-2.5 h-2.5 rounded-full dot-${agd.category} mt-1 flex-shrink-0"></span>
+          <div>
+            <p class="font-bold text-slate-800 leading-tight">${agd.title} ${agd.sifat === 'internal' ? '<span class="text-[8px] bg-indigo-100 text-indigo-700 px-1 rounded ml-1 font-bold">INTERNAL</span>' : ''}</p>
+            <p class="text-[9px] text-slate-400 mt-0.5">Kategori: ${LABELS[agd.category]}</p>
+          </div>
+        </div>
+      `).join('');
+
+      popover.classList.remove("hidden");
+      const rect = cell.getBoundingClientRect(), parentRect = cell.offsetParent.getBoundingClientRect();
+      popover.style.left = `${Math.max(10, rect.left - parentRect.left + (rect.width / 2) - 144)}px`;
+      popover.style.top = `${rect.top - parentRect.top + rect.height + 6}px`;
+    }
+
+    function handleCellTap(cell) {
+      if (!cell.getAttribute("data-agenda")) return;
+      const agendaData = JSON.parse(cell.getAttribute("data-agenda"));
+      let html = `<strong class="text-blue-400 block mb-1 text-xs uppercase">${cell.getAttribute("data-tgl-indo")}</strong>`;
+      html += agendaData.map((agd, i) => `<div class="mt-2 text-xs border-l-2 border-yellow-400 pl-2"><strong>${i+1}. ${agd.title}</strong><span class="block text-[10px] text-slate-400">Sifat: ${agd.sifat.toUpperCase()} | Kategori: ${LABELS[agd.category].toUpperCase()}</span></div>`).join('');
+      showToast(html, "info");
+    }
+
+    function filterAgenda() {
+      const q = document.getElementById("searchAgenda").value.toLowerCase();
+      Array.from(document.getElementById("tbodyAgenda").rows).forEach(r => r.classList.toggle("hidden", !r.getAttribute("data-search").includes(q)));
+    }
+
+    async function toggleGlobalLock() {
+      if (confirm(isLockedText ? "Buka sistem untuk Admin?" : "Kunci sistem untuk Admin?")) {
+        showToast("Memproses...", "info");
+        try {
+          const res = await panggilApiServer("toggleGlobalLockStatus");
+          showToast(res.message, "success"); isLockedText = res.isLocked; updateUIAccess(); await muatDataAgendaSaja();
+        } catch(err) {
+          showToast(err.message, "error");
+        }
+      }
+    }
+
+    function handleDateInputChange() {
+      const s = document.getElementById("agendaStart").value, e = document.getElementById("agendaEnd").value;
+      document.getElementById("startPreviewText").innerText = s ? `✓ ${formatTanggalSempurnaLokal(s)}` : "";
+      document.getElementById("endPreviewText").innerText = e ? `✓ ${formatTanggalSempurnaLokal(e)}` : "";
+      if (s && e && new Date(e) < new Date(s)) {
+        document.getElementById("formError").innerText = "Tanggal berakhir mendahului tanggal mulai.";
+        document.getElementById("formError").classList.remove("hidden"); return false;
+      }
+      document.getElementById("formError").classList.add("hidden"); return true;
+    }
+
+    function formatTanggalSempurnaLokal(dateStr) {
+      const parts = dateStr.split("-");
+      if (parts.length !== 3) return dateStr;
+      const d = new Date(parts[0], parseInt(parts[1])-1, parts[2]);
+      return isNaN(d) ? dateStr : `${NAMA_HARI[d.getDay()]}, ${d.getDate()} ${NAMA_BULAN[d.getMonth()]} ${d.getFullYear()}`;
+    }
+
+    function openModal(agenda = null) {
+      if (userAccess.role === "admin" && isLockedText) return showToast("Sistem dikunci oleh Super Admin!", "error");
+      const form = document.getElementById("formAgenda"); form.reset();
+      document.getElementById("agendaId").value = ""; document.getElementById("formError").classList.add("hidden");
+      document.getElementById("startPreviewText").innerText = ""; document.getElementById("endPreviewText").innerText = "";
+      
+      if (agenda) {
+        document.getElementById("modalTitle").innerText = "Edit Agenda";
+        ['Id', 'Title', 'Start', 'End', 'Category', 'Sifat'].forEach(k => document.getElementById(`agenda${k}`).value = k==='Start'||k==='End' ? konversiTanggalKeHTMLInput(agenda[k.toLowerCase()]) : agenda[k.toLowerCase()]);
+        handleDateInputChange();
+      } else document.getElementById("modalTitle").innerText = "Tambah Agenda Baru";
+
+      document.getElementById("agendaModal").classList.remove("hidden");
+      setTimeout(() => document.getElementById("modalContainer").classList.replace("scale-95", "scale-100") || document.getElementById("modalContainer").classList.replace("opacity-0", "opacity-100"), 50);
+    }
+
+    function closeModal() {
+      document.getElementById("modalContainer").classList.replace("scale-100", "scale-95");
+      document.getElementById("modalContainer").classList.replace("opacity-100", "opacity-0");
+      setTimeout(() => document.getElementById("agendaModal").classList.add("hidden"), 200);
+    }
+
+    async function handleFormSubmit(e) {
+      e.preventDefault(); if (!handleDateInputChange()) return;
+      const btn = document.getElementById("btnSimpan"), t = btn.innerHTML;
+      btn.disabled = true; btn.innerHTML = `<span class="animate-spin rounded-full h-3 w-3 border-b-2 border-white inline-block"></span> Menyimpan...`;
+
+      try {
+        const res = await panggilApiServer("saveAgendaData", {
+          id: document.getElementById("agendaId").value, title: document.getElementById("agendaTitle").value,
+          start: document.getElementById("agendaStart").value, end: document.getElementById("agendaEnd").value,
+          category: document.getElementById("agendaCategory").value, sifat: document.getElementById("agendaSifat").value
+        });
+        btn.disabled = false; btn.innerHTML = t; closeModal(); showToast(res.message, "success"); await muatDataAgendaSaja();
+      } catch (err) {
+        btn.disabled = false; btn.innerHTML = t; document.getElementById("formError").innerText = err.message; document.getElementById("formError").classList.remove("hidden");
+      }
+    }
+
+    function editAgenda(id) { const a = listAgenda.find(x => x.id === id); if (a) openModal(a); }
+    
+    async function hapusAgenda(id) {
+      const a = listAgenda.find(x => x.id === id);
+      if (a && confirm(`Hapus agenda: "${a.title}"?`)) {
+        showToast("Menghapus...", "info");
+        try {
+          const res = await panggilApiServer("deleteAgendaData", { id: id });
+          showToast(res.message, "success"); await muatDataAgendaSaja();
+        } catch (err) {
+          showToast(err.message, "error");
+        }
+      }
+    }
+
+    function bukaHalamanCetak() { 
+      // Link cetak diarahkan ke halaman print di hostingan GitHub Pages Anda
+      // secara dinamis menyesuaikan alamat URL saat ini
+      const printUrl = window.location.href.replace("index.html", "").split("?")[0] + "print.html";
+      window.open(`${printUrl}?token=${tokenSandiAktif}`, "_blank");
+    }
+    
+    function formatTanggalISO(d) { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; }
+    function formatTanggalIndo(str) { const p = str.split("-"); return p.length === 3 ? `${parseInt(p[2])} ${NAMA_BULAN[parseInt(p[1]) - 1]} ${p[0]}` : str; }
+    function konversiTanggalKeHTMLInput(str) { const p = str.split("-"); return p.length === 3 ? `${p[0]}-${p[1].padStart(2, '0')}-${p[2].padStart(2, '0')}` : str; }
+
+    function showToast(msg, type = "info") {
+      const t = document.getElementById("toast"), i = document.getElementById("toastIcon");
+      document.getElementById("toastMsg").innerHTML = msg;
+      i.className = `p-1 rounded-lg text-white ${type === 'success' ? 'bg-green-500' : type === 'error' ? 'bg-red-500' : 'bg-blue-500'}`;
+      i.innerHTML = `<i data-lucide="${type === 'success' ? 'check-circle' : type === 'error' ? 'x-circle' : 'info'}" class="w-4 h-4"></i>`;
+      if (typeof lucide !== 'undefined') lucide.createIcons();
+      t.classList.replace("translate-y-10", "translate-y-0"); t.classList.replace("opacity-0", "opacity-100");
+      setTimeout(() => { t.classList.replace("translate-y-0", "translate-y-10"); t.classList.replace("opacity-100", "opacity-0"); }, 5000);
+    }
+  </script>
+</body>
+</html>
